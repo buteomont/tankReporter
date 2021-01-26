@@ -41,13 +41,27 @@ boolean ssidAvailable=false;
 int connectTryCount=0;
 
 unsigned long nextReport=0;
+unsigned long nextFlash=0;
+boolean warningLedOn=false;
+
+int lastReading=0;
+
+void flashWarning(boolean val)
+  {
+  if (millis()>=nextFlash)
+    {
+    digitalWrite(WARNING_LED_PORT,val && warningLedOn);
+    warningLedOn=!warningLedOn;
+    nextFlash=millis()+WARNING_LED_FLASH_RATE*1000;
+    } 
+  }
 
 //Take a measurement
-int readSensor()
+void readSensor()
   {
   int val=digitalRead(SENSOR_PORT);
-  digitalWrite(LED_BUILTIN,val);// on or off
-  return val;
+  flashWarning((boolean)val);
+  lastReading=val;
   }
 
 void showSettings()
@@ -374,7 +388,7 @@ void report()
   //publish the last reading value
   strcpy(topic,settings.mqttTopicRoot);
   strcat(topic,MQTT_TOPIC_READING);
-  sprintf(value,"%d",readSensor()); 
+  sprintf(value,"%d",lastReading); 
   success=publish(topic,value,true); //retain
   if (!success)
     Serial.println("************ Failed publishing sensor reading!");
@@ -382,7 +396,7 @@ void report()
   //publish the moisture content
   strcpy(topic,settings.mqttTopicRoot);
   strcat(topic,MQTT_TOPIC_LEVEL);
-  sprintf(value,"%s",readSensor()?MQTT_PAYLOAD_SENSOR_DRY:MQTT_PAYLOAD_SENSOR_WET); //item within range window
+  sprintf(value,"%s",lastReading?MQTT_PAYLOAD_SENSOR_DRY:MQTT_PAYLOAD_SENSOR_WET); //item within range window
   success=publish(topic,value,true); //retain
   if (!success)
     Serial.println("************ Failed publishing moisture value!");
@@ -659,8 +673,10 @@ void connectToWiFi()
 
 void setup() 
   {
-  pinMode(LED_BUILTIN,OUTPUT);// The blue light on the board shows activity
-  digitalWrite(LED_BUILTIN,LED_OFF);// Turn it off
+  pinMode(WIFI_LED_PORT,OUTPUT);// The blue light on the board shows wifi activity
+  digitalWrite(WIFI_LED_PORT,LED_OFF);// Turn it off
+  pinMode(WARNING_LED_PORT,OUTPUT);// The external light on the board shows low tank
+  digitalWrite(WARNING_LED_PORT,LED_OFF);// Turn it off
   
   Serial.begin(115200);
   Serial.setTimeout(10000);
@@ -697,9 +713,15 @@ void setup()
 
 void loop() 
   {
-  
   checkForCommand(); // Check for serial input in case something needs to be changed
+  readSensor();      // Take a reading
+
+  if (WiFi.status()==WL_CONNECTED)
+    digitalWrite(WIFI_LED_PORT,LED_ON);
+  else
+    digitalWrite(WIFI_LED_PORT,LED_OFF);
   
+
   if (settingsAreValid) //if sleepTime is zero then don't sleep
     {
     if (millis()>=nextReport)
