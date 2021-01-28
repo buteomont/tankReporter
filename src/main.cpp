@@ -4,7 +4,7 @@
 #include <EEPROM.h>
 #include "tankReporter.h"
 
-#define VERSION "21.1.23.1"  //remember to update this after every change! YY.MM.DD.REV
+#define VERSION "21.1.28.1"  //remember to update this after every change! YY.MM.DD.REV
 
 //PubSubClient callback function header.  This must appear before the PubSubClient constructor.
 void incomingMqttHandler(char* reqTopic, byte* payload, unsigned int length);
