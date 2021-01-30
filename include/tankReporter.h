@@ -5,6 +5,9 @@
 
 #define SENSOR_PORT D1
 #define WARNING_LED_PORT D2
+#define OK_LED_PORT D3
+#define DRY LED_OFF
+#define WET LED_ON
 #define WIFI_LED_PORT LED_BUILTIN
 #define WARNING_LED_FLASH_RATE 1 //seconds
 #define VALID_SETTINGS_FLAG 0xDAB0
