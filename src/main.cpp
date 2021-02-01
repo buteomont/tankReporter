@@ -52,17 +52,24 @@ void flashWarning(boolean val)
   // Serial.println(val);
   if (millis()>=nextFlash && val==DRY)
     {
-//    Serial.println("DRY");
-    digitalWrite(OK_LED_PORT,LED_OFF);
-    digitalWrite(WARNING_LED_PORT,val && warningLedOn);
+    if (warningLedOn)
+      {
+      analogWrite(OK_LED_PORT_GREEN,DRY_GREEN_BRIGHTNESS);
+      analogWrite(WARNING_LED_PORT_RED,DRY_RED_BRIGHTNESS);
+      }
+    else
+      {
+      digitalWrite(OK_LED_PORT_GREEN,LED_OFF);
+      digitalWrite(WARNING_LED_PORT_RED,LED_OFF);
+      }
     warningLedOn=!warningLedOn;
     nextFlash=millis()+WARNING_LED_FLASH_RATE*1000;
     }
   else if (val==WET)
     {
 //    Serial.println("WET");
-    digitalWrite(WARNING_LED_PORT,LED_OFF);
-    digitalWrite(OK_LED_PORT,LED_ON);
+    digitalWrite(WARNING_LED_PORT_RED,LED_OFF);
+    digitalWrite(OK_LED_PORT_GREEN,LED_ON);
     }
   }
 
@@ -685,10 +692,10 @@ void setup()
   {
   pinMode(WIFI_LED_PORT,OUTPUT);// The blue light on the board shows wifi activity
   digitalWrite(WIFI_LED_PORT,LED_OFF);// Turn it off
-  pinMode(WARNING_LED_PORT,OUTPUT);// The yellow light on the board shows low tank
-  digitalWrite(WARNING_LED_PORT,LED_OFF);// Turn it off
-  pinMode(OK_LED_PORT,OUTPUT);// The green light on the board shows it's working
-  digitalWrite(OK_LED_PORT,LED_OFF);// Turn it off
+  pinMode(WARNING_LED_PORT_RED,OUTPUT);// The yellow light on the board shows low tank
+  digitalWrite(WARNING_LED_PORT_RED,LED_OFF);// Turn it off
+  pinMode(OK_LED_PORT_GREEN,OUTPUT);// The green light on the board shows it's working
+  digitalWrite(OK_LED_PORT_GREEN,LED_OFF);// Turn it off
 
   Serial.begin(115200);
   Serial.setTimeout(10000);
