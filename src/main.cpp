@@ -2,6 +2,7 @@
 #include <PubSubClient.h> 
 #include <ESP8266WiFi.h>
 #include <EEPROM.h>
+#include <ArduinoOTA.h>
 #include "tankReporter.h"
 
 #define VERSION "21.1.28.1"  //remember to update this after every change! YY.MM.DD.REV
@@ -45,6 +46,12 @@ unsigned long nextFlash=0;
 boolean warningLedOn=false;
 
 int lastReading=0;
+
+//TODO: make these part of configuration 
+IPAddress staticIP(192,168,1,80);
+IPAddress subnet(255,255,255,0);
+IPAddress gateway(192,168,1,1);
+IPAddress DNS(192,168,1,1);
 
 void flashWarning(boolean val)
   {
@@ -442,10 +449,6 @@ void loadSettings()
     }
   }
 
-
-
-
-
 /**
  * Handler for incoming MQTT messages.  The payload is the command to perform. 
  * The MQTT message topic sent is the topic root plus the command.
@@ -660,6 +663,7 @@ void connectToWiFi()
       Serial.println("\"");
       }
     WiFi.mode(WIFI_STA); //station mode, we are only a client in the wifi world
+    WiFi.config(staticIP, subnet, gateway, DNS);
     WiFi.begin(settings.ssid, settings.wifiPassword);
     wifiConnecting=true;
     }
@@ -724,9 +728,73 @@ void setup()
 
   if (settingsAreValid)
     {
-//    connectToWiFi();
     showSettings();
     }
+
+  // Port defaults to 8266
+  // ArduinoOTA.setPort(8266);
+
+  // Hostname defaults to esp8266-[ChipID]
+  // ArduinoOTA.setHostname("myesp8266");
+
+  // No authentication by default
+  // ArduinoOTA.setPassword("admin");
+
+  // Password can be set with it's md5 value as well
+  // MD5(admin) = 21232f297a57a5a743894a0e4a801fc3
+  // ArduinoOTA.setPasswordHash("21232f297a57a5a743894a0e4a801fc3");
+
+  ArduinoOTA.onStart([]() 
+    {
+    String type;
+    if (ArduinoOTA.getCommand() == U_FLASH) 
+      {
+      type = "sketch";
+      }
+    else  // U_FS
+      {
+      type = "filesystem";
+      }
+
+    // NOTE: if updating FS this would be the place to unmount FS using FS.end()
+    Serial.println("Start updating " + type);
+    });
+  ArduinoOTA.onEnd([]() 
+    {
+    Serial.println("\nEnd");
+    });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) 
+    {
+    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+    });
+  ArduinoOTA.onError([](ota_error_t error) 
+    {
+    Serial.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) 
+      {
+      Serial.println("Auth Failed");
+      } 
+    else if (error == OTA_BEGIN_ERROR) 
+      {
+      Serial.println("Begin Failed");
+      } 
+    else if (error == OTA_CONNECT_ERROR) 
+      {
+      Serial.println("Connect Failed");
+      } 
+    else if (error == OTA_RECEIVE_ERROR) 
+      {
+      Serial.println("Receive Failed");
+      }
+    else if (error == OTA_END_ERROR) 
+      {
+      Serial.println("End Failed");
+      }
+    });
+  ArduinoOTA.begin();
+  Serial.println("Ready");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
   }
 
 
@@ -736,7 +804,10 @@ void loop()
   readSensor();      // Take a reading
 
   if (WiFi.status()==WL_CONNECTED)
+    {
     digitalWrite(WIFI_LED_PORT,LED_ON);
+    ArduinoOTA.handle();// Check for new code
+    }
   else
     digitalWrite(WIFI_LED_PORT,LED_OFF);
   
