@@ -27,7 +27,7 @@ typedef struct
   char mqttTopicRoot[MQTT_TOPIC_SIZE]="";
   char mqttClientId[MQTT_CLIENTID_SIZE]=""; //will be the same across reboots
   bool debug=false;
-  long reportPeriod=0;
+  unsigned long reportPeriod=0;
   } conf;
 
 conf settings; //all settings in one struct makes it easier to store in EEPROM
@@ -173,7 +173,7 @@ boolean saveSettings()
   //The mqttClientId is not set by the user, but we need to make sure it's set  
   if (strlen(settings.mqttClientId)==0)
     {
-    strcpy(settings.mqttClientId,strcat(MQTT_CLIENT_ID_ROOT,String(random(0xffff), HEX).c_str()));
+    strcpy(settings.mqttClientId,strcat((char*)MQTT_CLIENT_ID_ROOT,String(random(0xffff), HEX).c_str()));
     }
     
     
@@ -191,7 +191,7 @@ void initializeSettings()
   strcpy(settings.mqttUsername,"");
   strcpy(settings.mqttPassword,"");
   strcpy(settings.mqttTopicRoot,"");
-  strcpy(settings.mqttClientId,strcat(MQTT_CLIENT_ID_ROOT,String(random(0xffff), HEX).c_str()));
+  strcpy(settings.mqttClientId,strcat((char*)MQTT_CLIENT_ID_ROOT,String(random(0xffff), HEX).c_str()));
   settings.reportPeriod=0;
   }
 
@@ -509,7 +509,7 @@ void incomingMqttHandler(char* reqTopic, byte* payload, unsigned int length)
       strcat(jsonStatus,"\", \"mqttClientId\":\"");
       strcat(jsonStatus,settings.mqttClientId);
       strcat(jsonStatus,"\", \"reportPeriod\":\"");
-      sprintf(tempbuf,"%d",settings.reportPeriod);
+      sprintf(tempbuf,"%lu",settings.reportPeriod);
       strcat(jsonStatus,tempbuf);
       strcat(jsonStatus,"\", \"debug\":\"");
       strcat(jsonStatus,settings.debug?"true":"false");
@@ -582,7 +582,7 @@ void saveAndShow()
   strcpy(topic,settings.mqttTopicRoot);
   strcat(topic,MQTT_TOPIC_COMMAND_REQUEST); //Send ourself the command to display settings
 
-  if (!publish(topic,MQTT_PAYLOAD_SETTINGS_COMMAND,false)) //do not retain
+  if (!publish(topic,(char*)MQTT_PAYLOAD_SETTINGS_COMMAND,false)) //do not retain
     Serial.println("************ Failure when publishing show settings response!");
   }
 
