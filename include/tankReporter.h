@@ -17,6 +17,7 @@
 #define PASSWORD_SIZE 50
 #define ADDRESS_SIZE 30
 #define USERNAME_SIZE 50
+#define MY_HOSTNAME "GolfCart"
 #define MQTT_CLIENTID_SIZE 25
 #define MQTT_TOPIC_SIZE 150
 #define MQTT_TOPIC_LEVEL "level"
@@ -31,7 +32,7 @@
 #define MQTT_PAYLOAD_REBOOT_COMMAND "reboot" //reboot the controller
 #define MQTT_PAYLOAD_VERSION_COMMAND "version" //show the version number
 #define MQTT_PAYLOAD_STATUS_COMMAND "status" //show the most recent flow values
-#define JSON_STATUS_SIZE SSID_SIZE+PASSWORD_SIZE+USERNAME_SIZE+MQTT_TOPIC_SIZE+50 //+50 for associated field names, etc
+#define JSON_STATUS_SIZE 450 //Keep an eye on this if status items are added
 #define PUBLISH_DELAY 400 //milliseconds to wait after publishing to MQTT to allow transaction to finish
 
 // Error codes copied from the MQTT library

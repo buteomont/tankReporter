@@ -28,6 +28,10 @@ typedef struct
   char mqttClientId[MQTT_CLIENTID_SIZE]=""; //will be the same across reboots
   bool debug=false;
   unsigned long reportPeriod=0;
+  char staticIP[ADDRESS_SIZE]="";
+  char netmask[ADDRESS_SIZE]="";
+  char gateway[ADDRESS_SIZE]="";
+  char dns[ADDRESS_SIZE]="";
   } conf;
 
 conf settings; //all settings in one struct makes it easier to store in EEPROM
@@ -47,11 +51,10 @@ boolean warningLedOn=false;
 
 int lastReading=0;
 
-//TODO: make these part of configuration 
-IPAddress staticIP(192,168,1,80);
-IPAddress subnet(255,255,255,0);
-IPAddress gateway(192,168,1,1);
-IPAddress DNS(192,168,1,1);
+IPAddress staticIP;
+IPAddress subnet;
+IPAddress gateway;
+IPAddress dns;
 
 void flashWarning(boolean val)
   {
@@ -121,6 +124,18 @@ void showSettings()
     Serial.print("reportperiod=<seconds between reports> (");
     Serial.print(settings.reportPeriod);
     Serial.println(")");
+    Serial.print("staticaddress=<IP address> (");
+    Serial.print(settings.staticIP);
+    Serial.println(")");
+    Serial.print("netmask=<network IP mask> (");
+    Serial.print(settings.netmask);
+    Serial.println(")");
+    Serial.print("gateway=<gateway IP address> (");
+    Serial.print(settings.gateway);
+    Serial.println(")");
+    Serial.print("dns=<DNS IP address> (");
+    Serial.print(settings.dns);
+    Serial.println(")");
     Serial.print("Settings are");
     Serial.print(settingsAreValid?"":" not");
     Serial.println(" valid.");
@@ -156,7 +171,10 @@ boolean saveSettings()
     settings.mqttBrokerPort!=0 &&
     strlen(settings.mqttTopicRoot)>0 &&
     strlen(settings.mqttClientId)>0 &&
-    settings.reportPeriod > 0
+    settings.reportPeriod > 0 &&
+      (strlen(settings.staticIP)==0 || //if staticIP set then all network stuff
+        (strlen(settings.netmask)>0 && //except DNS must be too
+        strlen(settings.gateway)>0))
     )
     {
     Serial.println("Settings deemed complete");
@@ -193,6 +211,10 @@ void initializeSettings()
   strcpy(settings.mqttTopicRoot,"");
   strcpy(settings.mqttClientId,strcat((char*)MQTT_CLIENT_ID_ROOT,String(random(0xffff), HEX).c_str()));
   settings.reportPeriod=0;
+  strcpy(settings.staticIP,"");
+  strcpy(settings.netmask,"");
+  strcpy(settings.gateway,"");
+  strcpy(settings.dns,"");
   }
 
 bool processCommand(String cmd)
@@ -212,7 +234,11 @@ bool processCommand(String cmd)
     showSettings();
     return false;   //bad or missing command
     }
-  else if (strcmp(nme,"broker")==0)
+  if (strcmp(val,"null")==0) //they want to reset a value
+    {
+    strcpy(val,"");
+    }
+  if (strcmp(nme,"broker")==0)
     {
     strcpy(settings.mqttBrokerAddress,val);
     saveSettings();
@@ -260,7 +286,27 @@ bool processCommand(String cmd)
     nextReport=millis()+settings.reportPeriod;
     saveSettings();
     }
- else if ((strcmp(nme,"factorydefaults")==0) && (strcmp(val,"yes")==0)) //reset all eeprom settings
+  else if (strcmp(nme,"staticaddress")==0)
+    {
+    strcpy(settings.staticIP,val);
+    saveSettings();
+    }
+  else if (strcmp(nme,"netmask")==0)
+    {
+    strcpy(settings.netmask,val);
+    saveSettings();
+    }
+  else if (strcmp(nme,"gateway")==0)
+    {
+    strcpy(settings.gateway,val);
+    saveSettings();
+    }
+  else if (strcmp(nme,"dns")==0)
+    {
+    strcpy(settings.dns,val);
+    saveSettings();
+    }
+  else if ((strcmp(nme,"factorydefaults")==0) && (strcmp(val,"yes")==0)) //reset all eeprom settings
     {
     Serial.println("\n*********************** Resetting EEPROM Values ************************");
     initializeSettings();
@@ -511,8 +557,18 @@ void incomingMqttHandler(char* reqTopic, byte* payload, unsigned int length)
       strcat(jsonStatus,"\", \"reportPeriod\":\"");
       sprintf(tempbuf,"%lu",settings.reportPeriod);
       strcat(jsonStatus,tempbuf);
+      strcat(jsonStatus,"\", \"staticaddress\":\"");
+      strcat(jsonStatus,settings.staticIP);
+      strcat(jsonStatus,"\", \"netmask\":\"");
+      strcat(jsonStatus,settings.netmask);
+      strcat(jsonStatus,"\", \"gateway\":\"");
+      strcat(jsonStatus,settings.gateway);
+      strcat(jsonStatus,"\", \"dns\":\"");
+      strcat(jsonStatus,settings.dns);
       strcat(jsonStatus,"\", \"debug\":\"");
       strcat(jsonStatus,settings.debug?"true":"false");
+      strcat(jsonStatus,"\", \"localIP\":\"");
+      strcat(jsonStatus,WiFi.localIP().toString().c_str());
 
       strcat(jsonStatus,"\"}");
       response=jsonStatus;
@@ -635,6 +691,16 @@ boolean inRange()
 
 void connectToWiFi()
   {
+    if (wifiConnecting && WiFi.status() == WL_CONNECTED)
+      {
+      wifiConnecting=false;
+      if (settings.debug)
+        {
+        Serial.print("Connected to WiFi with address ");
+        Serial.println(WiFi.localIP());
+        }
+      }
+
   if (WiFi.status()==WL_CONNECTED || !inRange())
     return;  //don't bother
 
@@ -660,11 +726,29 @@ void connectToWiFi()
       {
       Serial.print("Attempting to connect to WPA SSID \"");
       Serial.print(settings.ssid);
-      Serial.println("\"");
+      Serial.print("\" using ");
+      Serial.println(settings.staticIP?settings.staticIP:"DHCP");
       }
-    WiFi.mode(WIFI_STA); //station mode, we are only a client in the wifi world
-    WiFi.config(staticIP, subnet, gateway, DNS);
+    WiFi.hostname(MY_HOSTNAME);
+
+    //If a static IP address is specified then use it
+    if (staticIP && gateway && subnet && dns)
+      {
+      WiFi.disconnect();  //Prevent connecting to wifi based on previous configuration
+      Serial.print("...connecting with static address ");
+      Serial.println(settings.staticIP);
+      WiFi.config(staticIP, gateway, subnet, dns);
+      }
+    else if (staticIP && gateway && subnet)
+      {
+      WiFi.disconnect();  //Prevent connecting to wifi based on previous configuration
+      Serial.print("...connecting (no DNS) with static address ");
+      Serial.println(settings.staticIP);
+      WiFi.config(staticIP, gateway, subnet);
+      }
+
     WiFi.begin(settings.ssid, settings.wifiPassword);
+    WiFi.mode(WIFI_STA); //station mode, we are only a client in the wifi world
     wifiConnecting=true;
     }
   if (WiFi.status() != WL_CONNECTED && wifiConnecting) 
@@ -675,12 +759,6 @@ void connectToWiFi()
       Serial.print(".");
       }
 //    checkForCommand(); // Check for input in case something needs to be changed to work
-
-    if (settings.debug && WiFi.status() == WL_CONNECTED)
-      {
-      Serial.print("Connected to WiFi with address ");
-      Serial.println(WiFi.localIP());
-      }
     }
   
   
@@ -694,6 +772,7 @@ void connectToWiFi()
 
 void setup() 
   {
+  pinMode(SENSOR_PORT,INPUT_PULLUP); //The liquid level sensor has an open collector output
   pinMode(WIFI_LED_PORT,OUTPUT);// The blue light on the board shows wifi activity
   digitalWrite(WIFI_LED_PORT,LED_OFF);// Turn it off
   pinMode(WARNING_LED_PORT_RED,OUTPUT);// The yellow light on the board shows low tank
@@ -731,18 +810,14 @@ void setup()
     showSettings();
     }
 
-  // Port defaults to 8266
-  // ArduinoOTA.setPort(8266);
-
-  // Hostname defaults to esp8266-[ChipID]
-  // ArduinoOTA.setHostname("myesp8266");
-
-  // No authentication by default
-  // ArduinoOTA.setPassword("admin");
-
-  // Password can be set with it's md5 value as well
-  // MD5(admin) = 21232f297a57a5a743894a0e4a801fc3
-  // ArduinoOTA.setPasswordHash("21232f297a57a5a743894a0e4a801fc3");
+  if (sizeof(settings.staticIP)>0)
+    staticIP.fromString(settings.staticIP);
+  if (sizeof(settings.netmask)>0)
+    subnet.fromString(settings.netmask);
+  if (sizeof(settings.gateway)>0)
+    gateway.fromString(settings.gateway);
+  if (sizeof(settings.dns)>0)
+    dns.fromString(settings.dns);
 
   ArduinoOTA.onStart([]() 
     {
