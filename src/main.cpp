@@ -62,7 +62,7 @@ void flashWarning(boolean val)
   // Serial.println(val);
   if (millis()>=nextFlash && val==DRY)
     {
-    if (warningLedOn)
+    if (warningLedOn) //make it yellow
       {
       analogWrite(OK_LED_PORT_GREEN,DRY_GREEN_BRIGHTNESS);
       analogWrite(WARNING_LED_PORT_RED,DRY_RED_BRIGHTNESS);
