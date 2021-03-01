@@ -463,10 +463,10 @@ void report()
   if (!success)
     Serial.println("************ Failed publishing sensor reading!");
 
-  //publish the moisture content
+  //publish the fuel reading
   strcpy(topic,settings.mqttTopicRoot);
   strcat(topic,MQTT_TOPIC_LEVEL);
-  sprintf(value,"%s",lastReading?MQTT_PAYLOAD_SENSOR_DRY:MQTT_PAYLOAD_SENSOR_WET); //item within range window
+  sprintf(value,"%s",lastReading?MQTT_PAYLOAD_SENSOR_WET:MQTT_PAYLOAD_SENSOR_DRY); //item within range window
   success=publish(topic,value,true); //retain
   if (!success)
     Serial.println("************ Failed publishing moisture value!");
@@ -887,7 +887,7 @@ void loop()
     digitalWrite(WIFI_LED_PORT,LED_OFF);
   
 
-  if (settingsAreValid) //if sleepTime is zero then don't sleep
+  if (settingsAreValid) 
     {
     if (millis()>=nextReport)
       {
