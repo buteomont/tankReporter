@@ -79,7 +79,7 @@ void flashWarning(boolean val)
     {
 //    Serial.println("WET");
     digitalWrite(WARNING_LED_PORT_RED,LED_OFF);
-    digitalWrite(OK_LED_PORT_GREEN,LED_ON);
+    analogWrite(OK_LED_PORT_GREEN,WET_GREEN_BRIGHTNESS); //full on is too bright
     }
   }
 
