@@ -48,6 +48,7 @@ int connectTryCount=0;
 unsigned long nextReport=0;
 unsigned long nextFlash=0;
 boolean warningLedOn=false;
+boolean failure=false;
 
 int lastReading=0;
 
@@ -60,11 +61,12 @@ void flashWarning(boolean val)
   {
   // Serial.print("val is ");
   // Serial.println(val);
-  if (millis()>=nextFlash && val==DRY)
+  if (millis()>=nextFlash && (val==DRY || failure))
     {
     if (warningLedOn) //make it yellow
       {
-      analogWrite(OK_LED_PORT_GREEN,DRY_GREEN_BRIGHTNESS);
+      if (!failure) //but failure is red only
+        analogWrite(OK_LED_PORT_GREEN,DRY_GREEN_BRIGHTNESS); 
       analogWrite(WARNING_LED_PORT_RED,DRY_RED_BRIGHTNESS);
       }
     else
@@ -83,12 +85,30 @@ void flashWarning(boolean val)
     }
   }
 
+boolean hysteresis(boolean reading)
+  {
+  static boolean oldReading=reading;
+  static ulong oldTime=millis();
+
+  if (millis()-oldTime < HYSTERESIS_DELAY)
+    {
+    reading=oldReading; //ignore changes during HYSTERESIS_DELAY
+    }
+  else if (oldReading!=reading) //if it is changed, restart the timer and save the value
+    {
+    oldTime=millis();
+    oldReading=reading;
+    }
+  return reading;
+  }
+
 //Take a measurement
 void readSensor()
   {
   int val=digitalRead(SENSOR_PORT);
-  flashWarning((boolean)val);
-  lastReading=val;
+  boolean hys=hysteresis((boolean)val);
+  flashWarning(hys);
+  lastReading=hys;
   }
 
 void showSettings()
@@ -143,6 +163,7 @@ void showSettings()
     }
   catch(const std::exception& e)
     {
+    failure=true;
     Serial.println("******************* ERROR ************");
     Serial.println(e.what());
     }
