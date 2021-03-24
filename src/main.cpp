@@ -458,13 +458,20 @@ void mqttReconnect()
 
 boolean publish(char* topic, char* reading, bool retain)
   {
+  //digitalWrite(OK_LED_PORT_GREEN,LED_OFF); //the loop will turn it back on at normal brightness
   Serial.print(topic);
   Serial.print(" ");
   Serial.println(reading);
+  boolean ok=false;
   if (mqttClient.connected())
-    return mqttClient.publish(topic,reading,retain);
+    {
+    ok=mqttClient.publish(topic,reading,retain);
+    }
   else
-    return true;
+    {
+    ok=true;
+    }
+  return ok;
   }
 
 /************************

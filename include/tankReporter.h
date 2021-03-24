@@ -10,7 +10,7 @@
 #define WET LED_OFF
 #define DRY_RED_BRIGHTNESS 48
 #define DRY_GREEN_BRIGHTNESS 128
-#define WET_GREEN_BRIGHTNESS 200
+#define WET_GREEN_BRIGHTNESS 200 //higher number is less bright
 #define HYSTERESIS_DELAY 2000 //milliseconds
 #define WIFI_LED_PORT LED_BUILTIN
 #define WARNING_LED_FLASH_RATE 1 //seconds
